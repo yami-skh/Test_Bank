@@ -3,13 +3,13 @@ import pytest
 import random
 
 
-def generate_user():
+def user_generate():
     return "user" + str(random.randint(0, 9999999999))
 
 
 class TestCreditRequest:
     def test_credit_request_valid(self):
-        username = generate_user()
+        username = user_generate()
         auth_admin_response = requests.post(
             url="http://localhost:4111/api/auth/token/login",
             json={
@@ -92,7 +92,7 @@ class TestCreditRequest:
         assert create_user_account_response.json().get("balance") == 7000
 
     def test_credit_request_invalid(self):
-        username = generate_user()
+        username = user_generate()
         auth_admin_response = requests.post(
             url="http://localhost:4111/api/auth/token/login",
             json={

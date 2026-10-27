@@ -2,11 +2,16 @@ import pytest
 import requests
 import random
 
+from src.main.api.models.login_user_request import LoginUserRequest
+from src.main.api.models.create_user_request import CreateUserRequest
+from src.main.api.models.create_user_response import CreateUserResponse
+from src.main.api.models.login_user_response import LoginUserResponse
+
+
 # Каждый раз придумывает новое имя: «user» + случайное число.
 # По сути, без этого при повторном запуске сервер ответит 409 — такой пользователь уже есть.
 def generate_username():
-    return "user"+ str(random.randint(0,999999))
-
+    return "user" + str(random.randint(0, 999999))
 
 
 # Тесты на пополнение счёта (deposit).
@@ -16,12 +21,10 @@ class TestAccountDeposit:
         # Имя генерируем ОДИН раз: им создаём пользователя и им же потом входим.
         username = generate_username()
         # 1. Входим админом и забираем его токен — только админ может создавать пользователей.
+        login_user_request = LoginUserRequest(username="admin", password="123456")
         create_admin_response = requests.post(
             url="http://localhost:4111/api/auth/token/login",
-            json={
-                "username": "admin",
-                "password": "123456"
-            },
+            json=login_user_request.model_dump(),
             headers={
                 "Content-Type": "application/json",
                 "accept": "application/json"
@@ -30,30 +33,30 @@ class TestAccountDeposit:
         )
         token = create_admin_response.json().get("token")
         assert create_admin_response.status_code == 200
-
+        login_user_response = LoginUserResponse(**create_admin_response.json())
+        assert login_user_request.username == login_user_response.user.username
+        assert login_user_response.user.role == "ROLE_ADMIN"
 
         # 2. Админ создаёт нового пользователя. В заголовке — токен АДМИНА.
-        create_user_response = requests.post(
+        create_user_request = CreateUserRequest(username=username, password="Pas!w0rd", role="ROLE_USER")
+        response = requests.post(
             url="http://localhost:4111/api/admin/create",
-            json={
-                "username": username,
-                "password": "Pas!w0rd",
-                "role": "ROLE_USER"
-            },
+            json=create_user_request.model_dump(),
             headers={
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {token}"
             }
         )
-        assert create_user_response.status_code == 200
+        assert response.status_code == 200
+        create_user_response = CreateUserResponse(**response.json())
+        assert create_user_request.username == create_user_response.username
+        assert create_user_request.role == create_user_response.role
 
         # 3. Входим новым пользователем и забираем уже ЕГО токен.
+        login_user_request = LoginUserRequest(username=username, password="Pas!w0rd")
         auth_user_response = requests.post(
             url="http://localhost:4111/api/auth/token/login",
-            json={
-                "username": username,
-                "password": "Pas!w0rd"
-            },
+            json=login_user_request.model_dump(),
             headers={
                 "Content-Type": "application/json",
                 "accept": "application/json"
@@ -100,12 +103,10 @@ class TestAccountDeposit:
     def test_account_deposit_invalid(self):
         # Подготовка такая же: админ → новый пользователь → его токен → счёт.
         username = generate_username()
+        login_user_request = LoginUserRequest(username="admin", password="123456")
         create_admin_response = requests.post(
             url="http://localhost:4111/api/auth/token/login",
-            json={
-                "username": "admin",
-                "password": "123456"
-            },
+            json=login_user_request.model_dump(),
             headers={
                 "Content-Type": "application/json",
                 "accept": "application/json"
@@ -115,34 +116,34 @@ class TestAccountDeposit:
         token = create_admin_response.json().get("token")
         assert create_admin_response.status_code == 200
 
-        create_user_response = requests.post(
+
+
+        create_user_request = CreateUserRequest(username=username, password="Pas!w0rd", role="ROLE_USER")
+        response = requests.post(
             url="http://localhost:4111/api/admin/create",
-            json={
-                "username": username,
-                "password": "Pas!w0rd",
-                "role": "ROLE_USER"
-            },
+            json=create_user_request.model_dump(),
             headers={
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {token}"
             }
         )
-        assert create_user_response.status_code == 200
+        assert response.status_code == 200
+        create_user_response = CreateUserResponse(**response.json())
+        assert create_user_request.username == create_user_response.username
+        assert create_user_request.role == create_user_response.role
 
+
+
+        login_user_request = LoginUserRequest(username=username, password="Pas!w0rd")
         auth_user_response = requests.post(
             url="http://localhost:4111/api/auth/token/login",
-            json={
-                "username": username,
-                "password": "Pas!w0rd"
-            },
+            json=login_user_request.model_dump(),
             headers={
                 "Content-Type": "application/json",
                 "accept": "application/json"
             }
         )
         assert auth_user_response.status_code == 200
-        # assert auth_user_response.json()["user"]["username"] == "yam95"
-        # assert auth_user_response.json()["user"]["role"] == "ROLE_USER"
 
         token = auth_user_response.json().get("token")
 
@@ -173,11 +174,3 @@ class TestAccountDeposit:
 
         # 400 — сервер отказал: сумма вне лимита 1000–9000.
         assert user_account_deposit_response.status_code == 400
-
-
-
-
-
-
-
-
