@@ -102,5 +102,5 @@ class TestTransferMoneyMidl:
 
         response = MoneyTransferRequester(
             request_spec=RequestSpecs.auth_headers(username=username, password="Pas!w0rd"),
-            response_spec=ResponseSpecs.request_no_limit()
+            response_spec=ResponseSpecs.request_unprocessable()
         ).post(money_transfer_request)
