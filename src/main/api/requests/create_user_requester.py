@@ -8,7 +8,7 @@ import requests
 
 class CreateUserRequester(Requester):
     def post(self, create_user_request: CreateUserRequest) -> CreateUserResponse | Response:
-        url = self.base_url + "/admin/create"
+        url = f"{self.base_url}/admin/create"
         response = requests.post(
             url=url,
             headers=self.headers,
