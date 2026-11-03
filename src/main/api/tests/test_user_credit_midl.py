@@ -1,3 +1,4 @@
+import pytest
 import random
 
 from src.main.api.models.create_user_request import CreateUserRequest
@@ -15,6 +16,7 @@ def generate_user():
 
 
 
+@pytest.mark.api
 class TestUserCreditMidl:
     def test_user_credit_valid(self):
 

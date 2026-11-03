@@ -1,3 +1,4 @@
+import pytest
 import random
 
 from src.main.api.models import user_credit_response
@@ -15,6 +16,7 @@ from src.main.api.specs.response_specs import ResponseSpecs
 def generate_username():
     return "user"+str(random.randint(1, 99999999))
 
+@pytest.mark.api
 class TestCreditRepayMidl:
     def test_credit_repay_valid(self):
         username = generate_username()

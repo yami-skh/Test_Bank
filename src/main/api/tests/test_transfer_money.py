@@ -8,6 +8,7 @@ def generate_user():
     return "user"+ str(random.randint(0,9999999999))
 
 # Тесты на перевод денег между двумя счетами одного пользователя.
+@pytest.mark.api
 class TestTransferMoney:
     # ПОЗИТИВНЫЙ тест: обычный перевод, который должен пройти.
     def test_transfer_money_valid(self):

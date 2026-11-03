@@ -1,6 +1,7 @@
 import random
 
-from src.main.api.models import money_transfer_response
+import pytest
+
 from src.main.api.models.account_deposit_request import AccountDepositRequest
 from src.main.api.models.create_user_request import CreateUserRequest
 from src.main.api.models.money_transfer_request import MoneyTransferRequest
@@ -15,6 +16,7 @@ from src.main.api.specs.response_specs import ResponseSpecs
 def generate_username():
     return "user" + str(random.randint(0, 999999))
 
+@pytest.mark.api
 class TestTransferMoneyMidl:
     def test_transfer_money_valid(self):
         username=generate_username()

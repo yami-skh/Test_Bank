@@ -15,6 +15,7 @@ def generate_username():
 
 
 # Тесты на пополнение счёта (deposit).
+@pytest.mark.api
 class TestAccountDeposit:
     # ПОЗИТИВНЫЙ тест: пополняем на 1000 — это в пределах 1000–9000, должно пройти.
     def test_account_deposit_valid(self):

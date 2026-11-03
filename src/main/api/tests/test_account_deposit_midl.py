@@ -1,3 +1,4 @@
+import pytest
 import random
 from http import HTTPStatus
 
@@ -14,6 +15,7 @@ from src.main.api.specs.response_specs import ResponseSpecs
 def generate_username():
     return "user" + str(random.randint(0, 999999))
 
+@pytest.mark.api
 class TestAccountDepositMidl:
     def test_account_deposit_valid(self):
         # присвоили сгенерированное имя переменной один раз при старте метода

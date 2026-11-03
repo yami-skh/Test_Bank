@@ -7,6 +7,7 @@ def user_generate():
     return "user" + str(random.randint(0, 9999999999))
 
 
+@pytest.mark.api
 class TestCreditRequest:
     def test_credit_request_valid(self):
         username = user_generate()

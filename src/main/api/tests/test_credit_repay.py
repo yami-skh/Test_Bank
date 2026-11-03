@@ -6,6 +6,7 @@ import random
 def user_generate():
     return "user" + str(random.randint(0,99999999))
 
+@pytest.mark.api
 class TestCreditRepay:
     def test_credit_repay_valid(self):
         username = user_generate()
