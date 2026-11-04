@@ -27,3 +27,10 @@ class ResponseSpecs:
         def confirm(response: Response):
             assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY, response.text
         return confirm
+
+    #проверяю пополнения без токенов
+    @staticmethod
+    def request_unauthorized():
+        def confirm(response: Response):
+            assert response.status_code == HTTPStatus.UNAUTHORIZED, response.text
+        return confirm
