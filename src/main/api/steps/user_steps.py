@@ -68,6 +68,15 @@ class UserSteps(BaseSteps):
 
         return transfer_response
 
+    def money_transfer_out_of_limit(self, create_user_request: CreateUserRequest, money_transfer_request: MoneyTransferRequest):
+        transfer_response = CrudRequester(
+            RequestSpecs.auth_headers(create_user_request.username, create_user_request.password),
+            Endpoint.MONEY_TRANSFER,
+            ResponseSpecs.request_bad()
+        ).post(money_transfer_request)
+
+        return transfer_response
+
 
     def user_credit(self, create_user_request: CreateUserRequest, user_credit_request: UserCreditRequest):
         credit_response = ValidateCrudRequester(
@@ -95,6 +104,18 @@ class UserSteps(BaseSteps):
             RequestSpecs.auth_headers(create_user_request.username, create_user_request.password),
             Endpoint.USER_CREDIT,
             ResponseSpecs.request_forbidden()
+        ).post(user_credit_request)
+
+        return credit_response
+
+
+    def user_credit_out_of_limit(self, create_user_request: CreateUserRequest, user_credit_request: UserCreditRequest):
+        credit_response = CrudRequester(
+            RequestSpecs.auth_headers(create_user_request.username, create_user_request.password),
+            Endpoint.USER_CREDIT,
+            # Свагер: сумма выше 15000 → ошибка 422 "Credit amount cannot exceed 15000", сумма ниже 5000 ошибки нет.
+            # Банк по факту на обе границы отдаёт 400 "Amount must be between 5000 and 15000". Сделано по факту.
+            ResponseSpecs.request_bad()
         ).post(user_credit_request)
 
         return credit_response
