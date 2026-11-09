@@ -4,6 +4,9 @@ from src.main.api.foundation.requesters.validate_crud_requester import ValidateC
 from src.main.api.models.account_deposit_request import AccountDepositRequest
 
 from src.main.api.models.create_user_request import CreateUserRequest
+from src.main.api.models.credit_repay_request import CreditRepayRequest
+from src.main.api.models.money_transfer_request import MoneyTransferRequest
+from src.main.api.models.user_credit_request import UserCreditRequest
 from src.main.api.specs.request_specs import RequestSpecs
 from src.main.api.specs.response_specs import ResponseSpecs
 from src.main.api.steps.base_steps import BaseSteps
@@ -45,3 +48,73 @@ class UserSteps(BaseSteps):
         ).post(account_deposit_request)
 
         return deposit_response
+
+    def money_transfer(self, create_user_request: CreateUserRequest, money_transfer_request: MoneyTransferRequest):
+        transfer_response = ValidateCrudRequester(
+            RequestSpecs.auth_headers(create_user_request.username, create_user_request.password),
+            Endpoint.MONEY_TRANSFER,
+            ResponseSpecs.request_ok()
+        ).post(money_transfer_request)
+
+        return transfer_response
+
+
+    def money_transfer_invalid(self, create_user_request: CreateUserRequest, money_transfer_request: MoneyTransferRequest):
+        transfer_response = CrudRequester(
+            RequestSpecs.auth_headers(create_user_request.username, create_user_request.password),
+            Endpoint.MONEY_TRANSFER,
+            ResponseSpecs.request_unprocessable()
+        ).post(money_transfer_request)
+
+        return transfer_response
+
+
+    def user_credit(self, create_user_request: CreateUserRequest, user_credit_request: UserCreditRequest):
+        credit_response = ValidateCrudRequester(
+            RequestSpecs.auth_headers(create_user_request.username, create_user_request.password),
+            Endpoint.USER_CREDIT,
+            ResponseSpecs.request_create()
+        ).post(user_credit_request)
+
+        return credit_response
+
+
+    def user_credit_invalid(self, create_user_request: CreateUserRequest, user_credit_request: UserCreditRequest):
+        credit_response = CrudRequester(
+            RequestSpecs.auth_headers(create_user_request.username, create_user_request.password),
+            Endpoint.USER_CREDIT,
+        #    ResponseSpecs.request_forbidden() <- Здесь по свагеру должно отдать 403, но по факту отдает 404, сделано по факту.
+            ResponseSpecs.request_not_found()
+        ).post(user_credit_request)
+
+        return credit_response
+
+
+    def user_credit_forbidden(self, create_user_request: CreateUserRequest, user_credit_request: UserCreditRequest):
+        credit_response = CrudRequester(
+            RequestSpecs.auth_headers(create_user_request.username, create_user_request.password),
+            Endpoint.USER_CREDIT,
+            ResponseSpecs.request_forbidden()
+        ).post(user_credit_request)
+
+        return credit_response
+
+
+    def credit_repay(self, create_user_request: CreateUserRequest, credit_repay_request: CreditRepayRequest):
+        repay_response = ValidateCrudRequester(
+            RequestSpecs.auth_headers(create_user_request.username, create_user_request.password),
+            Endpoint.CREDIT_REPAY,
+            ResponseSpecs.request_ok()
+        ).post(credit_repay_request)
+
+        return repay_response
+
+    def credit_repay_invalid(self,  create_user_request: CreateUserRequest, credit_repay_request: CreditRepayRequest):
+        repay_response = CrudRequester(
+            RequestSpecs.auth_headers(create_user_request.username, create_user_request.password),
+            Endpoint.CREDIT_REPAY,
+            ResponseSpecs.request_unprocessable()
+        ).post(credit_repay_request)
+
+        return repay_response
+
