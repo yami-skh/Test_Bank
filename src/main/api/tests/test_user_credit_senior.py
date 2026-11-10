@@ -4,7 +4,7 @@ from src.main.api.generators.model_generator import RandomModelGenerator
 from src.main.api.models.user_credit_request import UserCreditRequest
 
 
-@pytest.mark.apis
+@pytest.mark.api
 class TestUserCredit:
     def test_user_credit(self, api_manager, create_user_request):
         user = create_user_request(role="ROLE_CREDIT_SECRET")
@@ -16,6 +16,13 @@ class TestUserCredit:
         credit_request.accountId = account.id
         credit = api_manager.user_steps.user_credit(user, credit_request)
         assert credit.balance == credit_request.amount
+        assert credit.id == account.id
+
+        credit_history = api_manager.user_steps.get_credit_history(user)
+        credits = [c for c in credit_history.credits if c.creditId == credit.creditId]
+        assert len(credits) == 1
+        assert credits[0].accountId == account.id
+        assert credits[0].balance == -credit_request.amount
 
     @pytest.mark.parametrize(
         "amount, termMonths", [
@@ -38,6 +45,7 @@ class TestUserCredit:
         )
         credit = api_manager.user_steps.user_credit(user, credit_request)
         assert credit.balance == credit_request.amount
+        assert credit.id == account.id
 
     @pytest.mark.parametrize(
         "amount, termMonths, error_text", [
@@ -63,6 +71,9 @@ class TestUserCredit:
             termMonths=termMonths
         )
         credit = api_manager.user_steps.user_credit_out_of_limit(user, credit_request)
+
+        account_after = api_manager.user_steps.get_account(user, account.id)
+        assert account_after.balance == account.balance
         assert error_text in credit.text
 
     def test_user_credit_second(self, api_manager, create_user_request):
@@ -77,13 +88,12 @@ class TestUserCredit:
 
         credit_request_two = RandomModelGenerator.generate(UserCreditRequest)
         credit_request_two.accountId = account.id
-        credit_two = api_manager.user_steps.user_credit_invalid(user,
-                                                                credit_request_two)  # <- Вот здесь должно дать ошибку 403, но по факту дает 404. сделано по факту в user_step.
+        # Вот здесь должно дать ошибку 403, но по факту дает 404. сделано по факту в user_step.
+        credit_two = api_manager.user_steps.user_credit_invalid(user, credit_request_two)
 
         assert "Only one active credit allowed per user" in credit_two.text
 
     def test_user_credit_forbidden(self, api_manager, create_user_request):
-        # обычный пользователь без роли ROLE_CREDIT_SECRET кредит взять не может
         user = create_user_request()
 
         account = api_manager.user_steps.create_account(user)
@@ -91,6 +101,10 @@ class TestUserCredit:
         credit_request = RandomModelGenerator.generate(UserCreditRequest)
         credit_request.accountId = account.id
         response = api_manager.user_steps.user_credit_forbidden(user, credit_request)
+
+        account_after = api_manager.user_steps.get_account(user, account.id)
+        assert account_after.balance == account.balance
+        assert account_after.transactions == []
 
         # тело ответа на 403 другое, чем у 404/422: не {"error": ...}, а {"title", "status", "detail", ...}
         assert "ROLE_CREDIT access required" in response.text

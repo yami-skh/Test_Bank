@@ -22,6 +22,15 @@ class UserSteps(BaseSteps):
 
         return account_response
 
+    def get_account(self, create_user_request: CreateUserRequest, account_id: int):
+        get_account_response = ValidateCrudRequester(
+            RequestSpecs.auth_headers(create_user_request.username, create_user_request.password),
+            Endpoint.ACCOUNT_TRANSACTIONS,
+            ResponseSpecs.request_ok()
+        ).get(account_id)
+
+        return get_account_response
+
     def deposit(self, create_user_request: CreateUserRequest, account_deposit_request: AccountDepositRequest):
         deposit_response = ValidateCrudRequester(
             RequestSpecs.auth_headers(create_user_request.username, create_user_request.password),
@@ -76,6 +85,16 @@ class UserSteps(BaseSteps):
         ).post(money_transfer_request)
 
         return transfer_response
+
+
+    def get_credit_history(self, create_user_request: CreateUserRequest):
+        credit_history_response = ValidateCrudRequester(
+            RequestSpecs.auth_headers(create_user_request.username, create_user_request.password),
+            Endpoint.CREDIT_HISTORY,
+            ResponseSpecs.request_ok()
+        ).get()
+
+        return credit_history_response
 
 
     def user_credit(self, create_user_request: CreateUserRequest, user_credit_request: UserCreditRequest):
@@ -135,6 +154,16 @@ class UserSteps(BaseSteps):
             RequestSpecs.auth_headers(create_user_request.username, create_user_request.password),
             Endpoint.CREDIT_REPAY,
             ResponseSpecs.request_unprocessable()
+        ).post(credit_repay_request)
+
+        return repay_response
+
+    # 409 — в Swagger у /credit/repay такого кода нет, проверено на стенде
+    def credit_repay_already_repaid(self, create_user_request: CreateUserRequest, credit_repay_request: CreditRepayRequest):
+        repay_response = CrudRequester(
+            RequestSpecs.auth_headers(create_user_request.username, create_user_request.password),
+            Endpoint.CREDIT_REPAY,
+            ResponseSpecs.request_conflict()
         ).post(credit_repay_request)
 
         return repay_response

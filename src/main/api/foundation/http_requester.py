@@ -13,8 +13,10 @@ class HttpRequester:
         self.endpoint = endpoint
         self.response_spec = response_spec
 
-    def _request(self, method, model=None):
+    def _request(self, method, model=None, path_suffix=None):
         url = f"{Config.fetch('backendUrl')}{self.endpoint.value.url}"
+        if path_suffix is not None:
+            url = f"{url}/{path_suffix}"
         body = model.model_dump() if model is not None else None
         response = requests.request(
             method=method,

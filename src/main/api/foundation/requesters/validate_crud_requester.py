@@ -14,7 +14,10 @@ class ValidateCrudRequester(HttpRequester):
             response_spec=response_spec
         )
 
-
     def post(self, model: Optional[BaseModel] = None) -> BaseModel:
         response = self.crud_requester.post(model)
+        return self.endpoint.value.response_model.model_validate(response.json())
+
+    def get(self, object_id: Optional[int] = None) -> BaseModel:
+        response = self.crud_requester.get(object_id)
         return self.endpoint.value.response_model.model_validate(response.json())
