@@ -53,7 +53,7 @@ class TestCreditRepay:
 
         deposit_request = RandomModelGenerator.generate(AccountDepositRequest)
         deposit_request.accountId = account.id
-        deposit = api_manager.user_steps.deposit(user, deposit_request)
+        api_manager.user_steps.deposit(user, deposit_request)
 
         credit_request = RandomModelGenerator.generate(UserCreditRequest)
         credit_request.accountId = account.id

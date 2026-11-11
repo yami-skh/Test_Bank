@@ -1,5 +1,7 @@
 from typing import Optional
 
+import allure
+
 from src.main.api.foundation.http_requester import HttpRequester
 from src.main.api.foundation.requesters.crud_requester import CrudRequester
 from src.main.api.models.base_model import BaseModel
@@ -16,8 +18,12 @@ class ValidateCrudRequester(HttpRequester):
 
     def post(self, model: Optional[BaseModel] = None) -> BaseModel:
         response = self.crud_requester.post(model)
-        return self.endpoint.value.response_model.model_validate(response.json())
+        with allure.step(
+                f"Validated model response: {self.endpoint.value.response_model.__name__}"):
+            return self.endpoint.value.response_model.model_validate(response.json())
 
     def get(self, object_id: Optional[int] = None) -> BaseModel:
         response = self.crud_requester.get(object_id)
-        return self.endpoint.value.response_model.model_validate(response.json())
+        with allure.step(
+                f"Validated model response: {self.endpoint.value.response_model.__name__}"):
+            return self.endpoint.value.response_model.model_validate(response.json())
