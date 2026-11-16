@@ -4,10 +4,11 @@ from sqlalchemy.orm import Session
 from src.main.api.generators.model_generator import RandomModelGenerator
 from src.main.api.models.account_deposit_request import AccountDepositRequest
 from src.main.db.crud.account_crud import AccountCrudDb
+from src.main.db.crud.transaction_crud import TransactionCrudDb
 
 
 @pytest.mark.api
-class TestAccountDepositSenior:
+class TestAccountDeposit:
     def test_account_deposit(self, api_manager, create_user_request, db_session: Session):
         # --- Подготовка: пользователь и пустой счёт ---
         user = create_user_request()
@@ -30,11 +31,36 @@ class TestAccountDepositSenior:
             f"Баланс счёта в API {account_after.balance}, ожидали {expected_balance}"
         )
 
+        # --- Проверка: выписка по счёту ---
+        deposits = [t for t in account_after.transactions if t.type == "deposit"]
+        assert len(deposits) == 1, (
+            f"Операций deposit в истории счёта {account.id} в API {len(deposits)}, "
+            f"ожидали 1: {deposits}"
+        )
+        assert deposits[0].toAccountId == account.id, (
+            f"В истории API пополнение записано на счёт {deposits[0].toAccountId}, "
+            f"ожидали {account.id}"
+        )
+        assert deposits[0].amount == deposit_request.amount, (
+            f"Сумма пополнения в истории API {deposits[0].amount}, "
+            f"ожидали {deposit_request.amount}"
+        )
+
         # --- Проверка: база данных ---
         account_from_db = AccountCrudDb.get_account_by_id(db_session, account_id=account.id)
         assert account_from_db is not None, f"Счёт {account.id} не найден в БД"
         assert account_from_db.balance == expected_balance, (
             f"Баланс в БД {account_from_db.balance}, ожидали {expected_balance}"
+        )
+
+        deposits_from_db = TransactionCrudDb.get_deposits(db_session, account_id=account.id)
+        assert len(deposits_from_db) == 1, (
+            f"Пополнений счёта {account.id} в БД {len(deposits_from_db)}, "
+            f"ожидали 1: {deposits_from_db}"
+        )
+        assert deposits_from_db[0].amount == deposit_request.amount, (
+            f"Сумма пополнения в БД {deposits_from_db[0].amount}, "
+            f"ожидали {deposit_request.amount}"
         )
 
     @pytest.mark.parametrize("amount", [1000.0, 4500.0, 9000.0])

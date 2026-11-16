@@ -45,6 +45,36 @@ class TestTransferMoney:
             f"Баланс получателя в API {receiver_after.balance}, ожидали {expected_receiver_balance}"
         )
 
+        # --- Проверка: выписка по счёту ---
+        sender_after = api_manager.user_steps.get_account(user, sender.id)
+        transfers_out = [t for t in sender_after.transactions if t.type == "transfer_out"]
+        assert len(transfers_out) == 1, (
+            f"Операций transfer_out в истории отправителя {sender.id} в API {len(transfers_out)}, "
+            f"ожидали 1: {transfers_out}"
+        )
+        assert transfers_out[0].toAccountId == receiver.id, (
+            f"В истории API отправителя перевод ушёл на счёт {transfers_out[0].toAccountId}, "
+            f"ожидали {receiver.id}"
+        )
+        assert transfers_out[0].amount == -transfer_request.amount, (
+            f"Сумма transfer_out в истории API {transfers_out[0].amount}, "
+            f"ожидали {-transfer_request.amount}"
+        )
+
+        transfers_in = [t for t in receiver_after.transactions if t.type == "transfer_in"]
+        assert len(transfers_in) == 1, (
+            f"Операций transfer_in в истории получателя {receiver.id} в API {len(transfers_in)}, "
+            f"ожидали 1: {transfers_in}"
+        )
+        assert transfers_in[0].fromAccountId == sender.id, (
+            f"В истории API получателя перевод пришёл со счёта {transfers_in[0].fromAccountId}, "
+            f"ожидали {sender.id}"
+        )
+        assert transfers_in[0].amount == transfer_request.amount, (
+            f"Сумма transfer_in в истории API {transfers_in[0].amount}, "
+            f"ожидали {transfer_request.amount}"
+        )
+
         # --- Проверка: база данных ---
         sender_from_db = AccountCrudDb.get_account_by_id(db_session, sender.id)
         assert sender_from_db is not None, f"Счёт отправителя {sender.id} не найден в БД"

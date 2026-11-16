@@ -2,7 +2,6 @@ from requests import Response
 from http import HTTPStatus
 
 
-
 class ResponseSpecs:
     @staticmethod
     def request_ok():
@@ -28,7 +27,7 @@ class ResponseSpecs:
             assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY, response.text
         return confirm
 
-    #проверяю пополнения без токенов
+    # проверяю пополнения без токенов
     @staticmethod
     def request_unauthorized():
         def confirm(response: Response):
@@ -45,7 +44,6 @@ class ResponseSpecs:
     def request_not_found():
         def confirm(response: Response):
             assert response.status_code == HTTPStatus.NOT_FOUND, response.text
-
         return confirm
 
     @staticmethod

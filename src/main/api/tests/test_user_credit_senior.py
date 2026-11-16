@@ -22,6 +22,9 @@ class TestUserCredit:
         credit = api_manager.user_steps.user_credit(user, credit_request)
 
         # --- Проверка: ответ API ---
+        assert credit.amount == credit_request.amount, (
+            f"Сумма кредита в ответе {credit.amount}, ожидали {credit_request.amount}"
+        )
         assert credit.balance == credit_request.amount, (
             f"Баланс счёта в ответе на кредит {credit.balance}, ожидали {credit_request.amount}"
         )

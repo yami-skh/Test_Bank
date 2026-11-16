@@ -3,14 +3,14 @@ from typing import Any
 
 
 class Config:
-    _isinstance = None
+    _instance = None
     _dictionary = {}
 
     def __new__(cls):
-        if cls._isinstance is None:
-            cls._isinstance = super().__new__(cls)
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
 
-            config_path = Path(__file__).parents[4] /"resources" / "urls.properties"
+            config_path = Path(__file__).parents[4] / "resources" / "urls.properties"
 
             if not config_path.exists():
                 raise FileNotFoundError(f"Config path not found: {config_path}")
@@ -21,7 +21,7 @@ class Config:
                         key, value = line.split("=", 1)
                         cls._dictionary[key.strip()] = value.strip()
 
-        return cls._isinstance
+        return cls._instance
 
     @staticmethod
     def fetch(key: str, default_value: Any = None) -> Any:

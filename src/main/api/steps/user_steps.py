@@ -139,7 +139,7 @@ class UserSteps(BaseSteps):
         credit_response = CrudRequester(
             RequestSpecs.auth_headers(create_user_request.username, create_user_request.password),
             Endpoint.USER_CREDIT,
-        #    ResponseSpecs.request_forbidden() <- Здесь по свагеру должно отдать 403, но по факту отдает 404, сделано по факту.
+            # ResponseSpecs.request_forbidden() <- Здесь по свагеру должно отдать 403, но по факту отдает 404, сделано по факту.
             ResponseSpecs.request_not_found()
         ).post(user_credit_request)
 
