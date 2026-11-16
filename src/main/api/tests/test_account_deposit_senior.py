@@ -21,10 +21,14 @@ class TestAccountDepositSenior:
         deposit = api_manager.user_steps.deposit(user, deposit_request)
 
         # --- Проверка: ответ API ---
-        assert deposit.balance == expected_balance
+        assert deposit.balance == expected_balance, (
+            f"Баланс в ответе на пополнение {deposit.balance}, ожидали {expected_balance}"
+        )
 
         account_after = api_manager.user_steps.get_account(user, account.id)
-        assert account_after.balance == expected_balance
+        assert account_after.balance == expected_balance, (
+            f"Баланс счёта в API {account_after.balance}, ожидали {expected_balance}"
+        )
 
         # --- Проверка: база данных ---
         account_from_db = AccountCrudDb.get_account_by_id(db_session, account_id=account.id)
@@ -46,10 +50,14 @@ class TestAccountDepositSenior:
         deposit = api_manager.user_steps.deposit(user, deposit_request)
 
         # --- Проверка: ответ API ---
-        assert deposit.balance == expected_balance
+        assert deposit.balance == expected_balance, (
+            f"Баланс в ответе на пополнение {deposit.balance}, ожидали {expected_balance}"
+        )
 
         account_after = api_manager.user_steps.get_account(user, account.id)
-        assert account_after.balance == expected_balance
+        assert account_after.balance == expected_balance, (
+            f"Баланс счёта в API {account_after.balance}, ожидали {expected_balance}"
+        )
 
         # --- Проверка: база данных ---
         account_from_db = AccountCrudDb.get_account_by_id(db_session, account_id=account.id)
@@ -71,10 +79,15 @@ class TestAccountDepositSenior:
         deposit = api_manager.user_steps.deposit_invalid(user, deposit_request)
 
         # --- Проверка: ответ API ---
-        assert "Amount must be between 1000 and 9000" in deposit.text
+        assert "Amount must be between 1000 and 9000" in deposit.text, (
+            f"В ответе нет ошибки о лимите пополнения: {deposit.text}"
+        )
 
         account_after = api_manager.user_steps.get_account(user, account.id)
-        assert account_after.balance == expected_balance
+        assert account_after.balance == expected_balance, (
+            f"Баланс счёта в API {account_after.balance}, ожидали {expected_balance} - "
+            f"пополнение отклонено, баланс не должен был измениться"
+        )
 
         # --- Проверка: база данных ---
         account_from_db = AccountCrudDb.get_account_by_id(db_session, account_id=account.id)
@@ -92,4 +105,6 @@ class TestAccountDepositSenior:
         deposit_response = api_manager.user_steps.deposit_unauthorized(deposit_request)
 
         # --- Проверка: ответ API ---
-        assert "JWT Token not found" in deposit_response.text
+        assert "JWT Token not found" in deposit_response.text, (
+            f"В ответе нет ошибки об отсутствии токена: {deposit_response.text}"
+        )

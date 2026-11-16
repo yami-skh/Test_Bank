@@ -1,17 +1,21 @@
 import pytest
+from sqlalchemy.orm import Session
 
 from src.main.api.generators.model_generator import RandomModelGenerator
 from src.main.api.models.account_deposit_request import AccountDepositRequest
 from src.main.api.models.credit_repay_request import CreditRepayRequest
 from src.main.api.models.money_transfer_request import MoneyTransferRequest
 from src.main.api.models.user_credit_request import UserCreditRequest
+from src.main.db.crud.account_crud import AccountCrudDb
+from src.main.db.crud.credit_crud import CreditCrudDb
+from src.main.db.crud.transaction_crud import TransactionCrudDb
 
 MAX_DEPOSIT = 9000.0  # Максимальная сумма пополнения по требованиям проекта
 
 
 @pytest.mark.api
 class TestCreditRepay:
-    def test_credit_repay(self, api_manager, create_user_request):
+    def test_credit_repay(self, api_manager, create_user_request, db_session: Session):
         # --- Подготовка: пользователь с кредитной ролью и выданный кредит ---
         user = create_user_request(role="ROLE_CREDIT_SECRET")
         account = api_manager.user_steps.create_account(user)
@@ -32,16 +36,49 @@ class TestCreditRepay:
         repay_response = api_manager.user_steps.credit_repay(user, repay_request)
 
         # --- Проверка: ответ API ---
-        assert repay_response.amountDeposited == repay_request.amount
-        assert repay_response.creditId == credit.creditId
+        assert repay_response.amountDeposited == repay_request.amount, (
+            f"Сумма погашения в ответе {repay_response.amountDeposited}, ожидали {repay_request.amount}"
+        )
+        assert repay_response.creditId == credit.creditId, (
+            f"В ответе погашен кредит {repay_response.creditId}, ожидали {credit.creditId}"
+        )
 
         account_after = api_manager.user_steps.get_account(user, account.id)
-        assert account_after.balance == expected_balance
+        assert account_after.balance == expected_balance, (
+            f"Баланс счёта в API {account_after.balance}, ожидали {expected_balance}"
+        )
 
         credit_history = api_manager.user_steps.get_credit_history(user)
         credits = [c for c in credit_history.credits if c.creditId == credit.creditId]
-        assert len(credits) == 1
-        assert credits[0].balance == expected_debt
+        assert len(credits) == 1, (
+            f"Кредитов {credit.creditId} в истории API {len(credits)}, ожидали 1: {credits}"
+        )
+        assert credits[0].balance == expected_debt, (
+            f"Долг по кредиту в истории API {credits[0].balance}, ожидали {expected_debt}"
+        )
+
+        # --- Проверка: база данных ---
+        credit_from_db = CreditCrudDb.get_credit_by_id(db_session, credit.creditId)
+        assert credit_from_db is not None, (
+            f"Кредит {credit.creditId} в БД не найден"
+        )
+        assert credit_from_db.balance == expected_debt, (
+            f"Долг по кредиту в БД {credit_from_db.balance}, ожидали {expected_debt}"
+        )
+
+        account_from_db = AccountCrudDb.get_account_by_id(db_session, account.id)
+        assert account_from_db is not None, (
+            f"Счёт {account.id} не найден в БД"
+        )
+        assert account_from_db.balance == expected_balance, (
+            f"Баланс счёта в БД {account_from_db.balance}, ожидали {expected_balance}"
+        )
+
+        repayments_from_db = TransactionCrudDb.get_repayments(db_session, credit_id=credit.creditId)
+        assert len(repayments_from_db) == 1, (
+            f"Погашений кредита {credit.creditId} в БД {len(repayments_from_db)}, "
+            f"ожидали 1: {repayments_from_db}"
+        )
 
     @pytest.mark.parametrize(
         "offset, error_text",
@@ -77,15 +114,25 @@ class TestCreditRepay:
         repay_response = api_manager.user_steps.credit_repay_invalid(user, repay_request)
 
         # --- Проверка: ответ API ---
-        assert error_text in repay_response.text
+        assert error_text in repay_response.text, (
+            f"В ответе нет ошибки «{error_text}»: {repay_response.text}"
+        )
 
         account_after = api_manager.user_steps.get_account(user, account.id)
-        assert account_after.balance == expected_balance
+        assert account_after.balance == expected_balance, (
+            f"Баланс счёта в API {account_after.balance}, ожидали {expected_balance} - "
+            f"погашение отклонено, баланс не должен был измениться"
+        )
 
         credit_history = api_manager.user_steps.get_credit_history(user)
         credits = [c for c in credit_history.credits if c.creditId == credit.creditId]
-        assert len(credits) == 1
-        assert credits[0].balance == expected_debt
+        assert len(credits) == 1, (
+            f"Кредитов {credit.creditId} в истории API {len(credits)}, ожидали 1: {credits}"
+        )
+        assert credits[0].balance == expected_debt, (
+            f"Долг по кредиту в истории API {credits[0].balance}, ожидали {expected_debt} - "
+            f"погашение отклонено, долг не должен был измениться"
+        )
 
     def test_credit_repay_insufficient_funds(self, api_manager, create_user_request):
         # --- Подготовка: кредит, половина денег ушла на другой счёт — на погашение не хватает ---
@@ -117,17 +164,27 @@ class TestCreditRepay:
         repay_response = api_manager.user_steps.credit_repay_invalid(user, repay_request)
 
         # --- Проверка: ответ API ---
-        assert "Insufficient funds" in repay_response.text
+        assert "Insufficient funds" in repay_response.text, (
+            f"В ответе нет ошибки о нехватке денег: {repay_response.text}"
+        )
 
         account_after = api_manager.user_steps.get_account(user, account.id)
-        assert account_after.balance == expected_balance
+        assert account_after.balance == expected_balance, (
+            f"Баланс счёта в API {account_after.balance}, ожидали {expected_balance} - "
+            f"погашение отклонено, баланс не должен был измениться"
+        )
 
         credit_history = api_manager.user_steps.get_credit_history(user)
         credits = [c for c in credit_history.credits if c.creditId == credit.creditId]
-        assert len(credits) == 1
-        assert credits[0].balance == expected_debt
+        assert len(credits) == 1, (
+            f"Кредитов {credit.creditId} в истории API {len(credits)}, ожидали 1: {credits}"
+        )
+        assert credits[0].balance == expected_debt, (
+            f"Долг по кредиту в истории API {credits[0].balance}, ожидали {expected_debt} - "
+            f"погашение отклонено, долг не должен был измениться"
+        )
 
-    def test_credit_repay_twice(self, api_manager, create_user_request):
+    def test_credit_repay_twice(self, api_manager, create_user_request, db_session: Session):
         # --- Подготовка: кредит уже погашен; на счёте 18000, чтобы отказ был не из-за нехватки денег ---
         user = create_user_request(role="ROLE_CREDIT_SECRET")
         account = api_manager.user_steps.create_account(user)
@@ -155,12 +212,47 @@ class TestCreditRepay:
         repay_response_second = api_manager.user_steps.credit_repay_already_repaid(user, repay_request)
 
         # --- Проверка: ответ API ---
-        assert "already been repaid" in repay_response_second.text
+        assert "already been repaid" in repay_response_second.text, (
+            f"В ответе нет ошибки о погашенном кредите: {repay_response_second.text}"
+        )
 
         account_after_second = api_manager.user_steps.get_account(user, account.id)
-        assert account_after_second.balance == expected_balance
+        assert account_after_second.balance == expected_balance, (
+            f"Баланс счёта в API {account_after_second.balance}, ожидали {expected_balance} - "
+            f"деньги списались второй раз"
+        )
 
         credit_history = api_manager.user_steps.get_credit_history(user)
         credits = [c for c in credit_history.credits if c.creditId == credit.creditId]
-        assert len(credits) == 1
-        assert credits[0].balance == expected_debt
+        assert len(credits) == 1, (
+            f"Кредитов {credit.creditId} в истории API {len(credits)}, ожидали 1: {credits}"
+        )
+        assert credits[0].balance == expected_debt, (
+            f"Долг по кредиту в истории API {credits[0].balance}, ожидали {expected_debt} - "
+            f"повторное погашение не должно менять долг"
+        )
+
+        # --- Проверка: база данных ---
+        credit_from_db = CreditCrudDb.get_credit_by_id(db_session, credit_id=credit.creditId)
+        assert credit_from_db is not None, (
+            f"Кредит {credit.creditId} в БД не найден"
+        )
+        assert credit_from_db.balance == expected_debt, (
+            f"Долг по кредиту в БД {credit_from_db.balance}, ожидали {expected_debt} - "
+            f"повторное погашение не должно менять долг"
+        )
+
+        account_from_db = AccountCrudDb.get_account_by_id(db_session, account.id)
+        assert account_from_db is not None, (
+            f"Счёт {account.id} не найден в БД"
+        )
+        assert account_from_db.balance == expected_balance, (
+            f"Баланс счёта в БД {account_from_db.balance}, ожидали {expected_balance} - "
+            f"деньги списались второй раз"
+        )
+
+        repayments_from_db = TransactionCrudDb.get_repayments(db_session, credit_id=credit.creditId)
+        assert len(repayments_from_db) == 1, (
+            f"Погашений кредита {credit.creditId} в БД {len(repayments_from_db)}, "
+            f"ожидали 1 - повторное погашение не должно записываться: {repayments_from_db}"
+        )

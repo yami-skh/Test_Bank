@@ -35,10 +35,15 @@ class TestTransferMoney:
         transfer = api_manager.user_steps.money_transfer(user, transfer_request)
 
         # --- Проверка: ответ API ---
-        assert transfer.fromAccountIdBalance == expected_sender_balance
+        assert transfer.fromAccountIdBalance == expected_sender_balance, (
+            f"Баланс отправителя в ответе на перевод {transfer.fromAccountIdBalance}, "
+            f"ожидали {expected_sender_balance}"
+        )
 
         receiver_after = api_manager.user_steps.get_account(user, receiver.id)
-        assert receiver_after.balance == expected_receiver_balance
+        assert receiver_after.balance == expected_receiver_balance, (
+            f"Баланс получателя в API {receiver_after.balance}, ожидали {expected_receiver_balance}"
+        )
 
         # --- Проверка: база данных ---
         sender_from_db = AccountCrudDb.get_account_by_id(db_session, sender.id)
@@ -87,13 +92,18 @@ class TestTransferMoney:
         transfer = api_manager.user_steps.money_transfer(user, transfer_request)
 
         # --- Проверка: ответ API ---
-        assert transfer.fromAccountIdBalance == expected_sender_balance
+        assert transfer.fromAccountIdBalance == expected_sender_balance, (
+            f"Баланс отправителя в ответе на перевод {transfer.fromAccountIdBalance}, "
+            f"ожидали {expected_sender_balance}"
+        )
 
         receiver_after = api_manager.user_steps.get_account(user, receiver.id)
-        assert receiver_after.balance == expected_receiver_balance
+        assert receiver_after.balance == expected_receiver_balance, (
+            f"Баланс получателя в API {receiver_after.balance}, ожидали {expected_receiver_balance}"
+        )
 
     @pytest.mark.parametrize("amount", [250.0, 499.0, 10001.0, 15000.0])
-    def test_transfer_money_invalid(self, api_manager, create_user_request, amount):
+    def test_transfer_money_invalid(self, api_manager, create_user_request, amount, db_session: Session):
         # --- Подготовка: два счёта, на счёте отправителя 18000 — отказ только из-за лимита ---
         user = create_user_request()
 
@@ -112,18 +122,57 @@ class TestTransferMoney:
         expected_sender_balance = deposit.balance      # перевод отклонён — балансы не меняются
         expected_receiver_balance = receiver.balance
 
+        sender_balance_before_db = AccountCrudDb.get_account_by_id(db_session, sender.id).balance
+        receiver_balance_before_db = AccountCrudDb.get_account_by_id(db_session, receiver.id).balance
+
         # --- Действие: перевод вне лимита ---
         transfer = api_manager.user_steps.money_transfer_out_of_limit(user, transfer_request)
 
         # --- Проверка: ответ API ---
         # текст ответа немного отличается от текста в Swagger
-        assert "Amount must be between 500 and 10000" in transfer.text
+        assert "Amount must be between 500 and 10000" in transfer.text, (
+            f"В ответе нет ошибки о лимите перевода: {transfer.text}"
+        )
 
         sender_after = api_manager.user_steps.get_account(user, sender.id)
-        assert sender_after.balance == expected_sender_balance
+        assert sender_after.balance == expected_sender_balance, (
+            f"Баланс отправителя в API {sender_after.balance}, ожидали {expected_sender_balance} - "
+            f"перевод отклонён, баланс не должен был измениться"
+        )
 
         receiver_after = api_manager.user_steps.get_account(user, receiver.id)
-        assert receiver_after.balance == expected_receiver_balance
+        assert receiver_after.balance == expected_receiver_balance, (
+            f"Баланс получателя в API {receiver_after.balance}, ожидали {expected_receiver_balance} - "
+            f"перевод отклонён, баланс не должен был измениться"
+        )
+
+        # --- Проверка: база данных ---
+        db_session.expire_all()  # иначе сессия вернёт балансы, прочитанные до перевода
+        sender_from_db = AccountCrudDb.get_account_by_id(db_session, sender.id)
+        assert sender_from_db is not None, (
+            f"Счёт отправителя {sender.id} не найден в БД"
+        )
+        assert sender_from_db.balance == sender_balance_before_db, (
+            f"Баланс отправителя в БД {sender_from_db.balance}, "
+            f"ожидали {sender_balance_before_db}"
+        )
+
+        receiver_from_db = AccountCrudDb.get_account_by_id(db_session, receiver.id)
+        assert receiver_from_db is not None, (
+            f"Счёт получателя {receiver.id} не найден в БД"
+        )
+        assert receiver_from_db.balance == receiver_balance_before_db, (
+            f"Баланс получателя в БД {receiver_from_db.balance}, "
+            f"ожидали {receiver_balance_before_db}"
+        )
+
+        transfer_from_db = TransactionCrudDb.get_transfer(
+            db_session, from_account_id=sender.id, to_account_id=receiver.id
+        )
+        assert transfer_from_db is None, (
+            f"Отклонённый перевод {transfer_request.amount} со счёта {sender.id} "
+            f"на счёт {receiver.id} появился в БД"
+        )
 
     def test_transfer_money_insufficient_funds(self, api_manager, create_user_request):
         # --- Подготовка: два счёта, перевод чуть больше, чем есть у отправителя ---
@@ -148,10 +197,18 @@ class TestTransferMoney:
         transfer = api_manager.user_steps.money_transfer_invalid(user, transfer_request)
 
         # --- Проверка: ответ API ---
-        assert "Insufficient funds" in transfer.text
+        assert "Insufficient funds" in transfer.text, (
+            f"В ответе нет ошибки о нехватке денег: {transfer.text}"
+        )
 
         sender_after = api_manager.user_steps.get_account(user, sender.id)
-        assert sender_after.balance == expected_sender_balance
+        assert sender_after.balance == expected_sender_balance, (
+            f"Баланс отправителя в API {sender_after.balance}, ожидали {expected_sender_balance} - "
+            f"перевод отклонён, баланс не должен был измениться"
+        )
 
         receiver_after = api_manager.user_steps.get_account(user, receiver.id)
-        assert receiver_after.balance == expected_receiver_balance
+        assert receiver_after.balance == expected_receiver_balance, (
+            f"Баланс получателя в API {receiver_after.balance}, ожидали {expected_receiver_balance} - "
+            f"перевод отклонён, баланс не должен был измениться"
+        )

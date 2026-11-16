@@ -6,8 +6,19 @@ from src.main.db.models.transaction_table import Transaction
 class TransactionCrudDb:
     @staticmethod
     def get_deposits(db: Session, account_id: int) -> list[Transaction]:
-        return db.query(Transaction).filter_by(to_account_id=account_id, transaction_type="deposit").all()
+        return db.query(Transaction).filter_by(
+            to_account_id=account_id, transaction_type="deposit"
+        ).all()
 
     @staticmethod
     def get_transfer(db: Session, from_account_id: int, to_account_id: int) -> Transaction | None:
-        return db.query(Transaction).filter_by(from_account_id=from_account_id, to_account_id=to_account_id, transaction_type="transfer").first()
+        return db.query(Transaction).filter_by(
+            from_account_id=from_account_id, to_account_id=to_account_id,
+            transaction_type="transfer"
+        ).first()
+
+    @staticmethod
+    def get_repayments(db: Session, credit_id: int) -> list[Transaction]:
+        return db.query(Transaction).filter_by(
+            credit_id=credit_id, transaction_type="credit_repayment"
+        ).all()
