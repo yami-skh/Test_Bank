@@ -1,6 +1,5 @@
-from typing import Callable, Dict
-
 import json
+from typing import Callable, Dict, Optional
 
 import allure
 import requests
@@ -8,6 +7,7 @@ from requests import Response
 
 from src.main.api.configs.config import Config
 from src.main.api.foundation.endpoint import Endpoint
+from src.main.api.models.base_model import BaseModel
 
 
 class HttpRequester:
@@ -16,7 +16,7 @@ class HttpRequester:
         self.endpoint = endpoint
         self.response_spec = response_spec
 
-    def _request(self, method, model=None, path_suffix=None):
+    def _request(self, method: str, model: Optional[BaseModel] = None, path_suffix: Optional[int] = None) -> Response:
         url = f"{Config.fetch('backendUrl')}{self.endpoint.value.url}"
         if path_suffix is not None:
             url = f"{url}/{path_suffix}"

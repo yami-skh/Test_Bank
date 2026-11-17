@@ -1,3 +1,5 @@
+from typing import Dict
+
 import requests
 
 from src.main.api.configs.config import Config
@@ -7,14 +9,14 @@ from src.main.api.models.login_user_response import LoginUserResponse
 
 class RequestSpecs:
     @staticmethod
-    def base_headers():
+    def base_headers() -> Dict[str, str]:
         return {
             "Content-Type": "application/json",
             "accept": "application/json"
         }
 
     @staticmethod
-    def auth_headers(username: str, password: str):
+    def auth_headers(username: str, password: str) -> Dict[str, str]:
         login_user_request = LoginUserRequest(username=username, password=password)
         response = requests.post(
             url=Config.fetch("backendUrl") + "/auth/token/login",
@@ -31,5 +33,5 @@ class RequestSpecs:
         raise Exception(f"Ошибка авторизации {response.status_code} {response.text}")
 
     @staticmethod
-    def unauth_headers():
+    def unauth_headers() -> Dict[str, str]:
         return RequestSpecs.base_headers()

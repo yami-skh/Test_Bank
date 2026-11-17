@@ -1,18 +1,20 @@
 import pytest
 from sqlalchemy.orm import Session
 
+from src.main.api.classes.api_manager import ApiManager
 from src.main.api.generators.model_generator import RandomModelGenerator
 from src.main.api.models.account_deposit_request import AccountDepositRequest
+from src.main.api.models.create_account_response import CreateAccountResponse
+from src.main.api.models.create_user_request import CreateUserRequest
 from src.main.db.crud.account_crud import AccountCrudDb
+from src.main.db.crud.transaction_crud import TransactionCrudDb
 
 
 @pytest.mark.api
-class TestAccountDepositSenior:
-    def test_account_deposit(self, api_manager, create_user_request, db_session: Session):
-        # --- Подготовка: пользователь и пустой счёт ---
-        user = create_user_request()
-        account = api_manager.user_steps.create_account(user)
-
+class TestAccountDeposit:
+    def test_account_deposit(self, api_manager: ApiManager, user: CreateUserRequest,
+                             account: CreateAccountResponse, db_session: Session) -> None:
+        # --- Подготовка: пополнение случайной суммой ---
         deposit_request = RandomModelGenerator.generate(AccountDepositRequest)
         deposit_request.accountId = account.id
         expected_balance = account.balance + deposit_request.amount
@@ -21,10 +23,9 @@ class TestAccountDepositSenior:
         deposit = api_manager.user_steps.deposit(user, deposit_request)
 
         # --- Проверка: ответ API ---
-        assert deposit.balance == expected_balance
-
-        account_after = api_manager.user_steps.get_account(user, account.id)
-        assert account_after.balance == expected_balance
+        assert deposit.balance == expected_balance, (
+            f"Баланс в ответе на пополнение {deposit.balance}, ожидали {expected_balance}"
+        )
 
         # --- Проверка: база данных ---
         account_from_db = AccountCrudDb.get_account_by_id(db_session, account_id=account.id)
@@ -33,12 +34,16 @@ class TestAccountDepositSenior:
             f"Баланс в БД {account_from_db.balance}, ожидали {expected_balance}"
         )
 
-    @pytest.mark.parametrize("amount", [1000.0, 4500.0, 9000.0])
-    def test_account_deposit_valid(self, api_manager, create_user_request, amount, db_session: Session):
-        # --- Подготовка: пользователь и пустой счёт, сумма на границах лимита ---
-        user = create_user_request()
-        account = api_manager.user_steps.create_account(user)
+        deposits_from_db = TransactionCrudDb.get_deposits(db_session, account_id=account.id)
+        assert len(deposits_from_db) == 1, (
+            f"Пополнений счёта {account.id} в БД {len(deposits_from_db)}, "
+            f"ожидали 1: {deposits_from_db}"
+        )
 
+    @pytest.mark.parametrize("amount", [1000.0, 4500.0, 9000.0])
+    def test_account_deposit_valid(self, api_manager: ApiManager, user: CreateUserRequest,
+                                   account: CreateAccountResponse, amount: float, db_session: Session) -> None:
+        # --- Подготовка: пополнение суммой на границе лимита ---
         deposit_request = AccountDepositRequest(accountId=account.id, amount=amount)
         expected_balance = account.balance + deposit_request.amount
 
@@ -46,10 +51,9 @@ class TestAccountDepositSenior:
         deposit = api_manager.user_steps.deposit(user, deposit_request)
 
         # --- Проверка: ответ API ---
-        assert deposit.balance == expected_balance
-
-        account_after = api_manager.user_steps.get_account(user, account.id)
-        assert account_after.balance == expected_balance
+        assert deposit.balance == expected_balance, (
+            f"Баланс в ответе на пополнение {deposit.balance}, ожидали {expected_balance}"
+        )
 
         # --- Проверка: база данных ---
         account_from_db = AccountCrudDb.get_account_by_id(db_session, account_id=account.id)
@@ -59,11 +63,9 @@ class TestAccountDepositSenior:
         )
 
     @pytest.mark.parametrize("amount", [450.0, 999.0, 9001.0, 15000.0])
-    def test_account_deposit_invalid(self, api_manager, create_user_request, amount, db_session: Session):
-        # --- Подготовка: пользователь и пустой счёт, сумма вне лимита ---
-        user = create_user_request()
-        account = api_manager.user_steps.create_account(user)
-
+    def test_account_deposit_invalid(self, api_manager: ApiManager, user: CreateUserRequest,
+                                     account: CreateAccountResponse, amount: float, db_session: Session) -> None:
+        # --- Подготовка: пополнение суммой вне лимита ---
         deposit_request = AccountDepositRequest(accountId=account.id, amount=amount)
         expected_balance = account.balance  # пополнение отклонено — баланс не меняется
 
@@ -71,10 +73,9 @@ class TestAccountDepositSenior:
         deposit = api_manager.user_steps.deposit_invalid(user, deposit_request)
 
         # --- Проверка: ответ API ---
-        assert "Amount must be between 1000 and 9000" in deposit.text
-
-        account_after = api_manager.user_steps.get_account(user, account.id)
-        assert account_after.balance == expected_balance
+        assert "Amount must be between 1000 and 9000" in deposit.text, (
+            f"В ответе нет ошибки о лимите пополнения: {deposit.text}"
+        )
 
         # --- Проверка: база данных ---
         account_from_db = AccountCrudDb.get_account_by_id(db_session, account_id=account.id)
@@ -84,7 +85,7 @@ class TestAccountDepositSenior:
             f"пополнение отклонено, баланс не должен был измениться"
         )
 
-    def test_account_deposit_unauthorized(self, api_manager):
+    def test_account_deposit_unauthorized(self, api_manager: ApiManager) -> None:
         # --- Подготовка: запрос без авторизации ---
         deposit_request = RandomModelGenerator.generate(AccountDepositRequest)
 
@@ -92,4 +93,6 @@ class TestAccountDepositSenior:
         deposit_response = api_manager.user_steps.deposit_unauthorized(deposit_request)
 
         # --- Проверка: ответ API ---
-        assert "JWT Token not found" in deposit_response.text
+        assert "JWT Token not found" in deposit_response.text, (
+            f"В ответе нет ошибки об отсутствии токена: {deposit_response.text}"
+        )

@@ -14,7 +14,7 @@ class Transaction(Base):
     created_at = Column(DateTime, nullable=False)
 
     def __repr__(self):
-        return (f"Transaction(id={self.id}, to_account_id={self.to_account_id}, "
-                f"from_account_id={self.from_account_id}, credit_id={self.credit_id}, "
-                f"amount={self.amount}, transaction_type={self.transaction_type}, "
-                f"created_at={self.created_at})")
+        return (f"Transaction(id: {self.id}, to_account_id: {self.to_account_id}, "
+                f"from_account_id: {self.from_account_id}, credit_id: {self.credit_id}, "
+                f"amount: {self.amount}, transaction_type: {self.transaction_type}, "
+                f"created_at: {self.created_at})")
